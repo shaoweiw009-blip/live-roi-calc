@@ -129,21 +129,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino 
         </div>
       </div>
       <div class="input-group">
-        <label>实际投放金额 <span class="hint">本场实际消耗的投流费用</span></label>
+        <label>直播间总销售额（GMV） <span class="hint">抖音后台整场成交金额，含自然流+投放</span></label>
+        <div class="input-row">
+          <input type="number" id="postGMV" placeholder="如 50000" step="100" min="0" oninput="calcPost()">
+          <span class="unit">元</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label>实际投放金额 <span class="hint">本场千川/随心推实际消耗</span></label>
         <div class="input-row">
           <input type="number" id="postSpend" placeholder="如 10000" step="100" min="0" oninput="calcPost()">
           <span class="unit">元</span>
         </div>
       </div>
       <div class="input-group">
-        <label>平均 ROI <span class="hint">整体支付ROI（GMV / 投放金额）</span></label>
-        <div class="input-row">
-          <input type="number" id="postROI" placeholder="如 3.5" step="0.01" min="0" oninput="calcPost()">
-          <span class="unit"></span>
-        </div>
-      </div>
-      <div class="input-group">
-        <label>退款率 <span class="hint">本场实际退款金额 / 成交金额</span></label>
+        <label>退款率 <span class="hint">后台退款金额 / 总销售额</span></label>
         <div class="input-row">
           <input type="number" id="postRefund" placeholder="如 15" step="0.1" min="0" max="100" oninput="calcPost()">
           <span class="unit">%</span>
@@ -152,10 +152,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino 
       <div id="postResult"></div>
       <div class="formula-hint">
         <strong>计算逻辑：</strong><br>
-        成交金额 = 投放金额 × 平均ROI<br>
-        净成交 = 成交金额 × (1 - 退款率)<br>
-        佣金收入 = 净成交 × 佣金率<br>
-        盈亏 = 佣金收入 - 投放金额
+        净销售额 = 总GMV × (1 - 退款率)<br>
+        佣金收入 = 净销售额 × 佣金率<br>
+        盈亏 = 佣金收入 - 投放金额<br>
+        整体ROI = 总GMV / 投放金额（含自然流）
       </div>
     </div>
   </div>
@@ -210,18 +210,18 @@ function calcPre() {
 function setPostCommission(v) { document.getElementById('postCommission').value = v; calcPost(); saveCommission(); }
 function calcPost() {
   var commission = parseFloat(document.getElementById('postCommission').value) || 0;
+  var gmv = parseFloat(document.getElementById('postGMV').value) || 0;
   var spend = parseFloat(document.getElementById('postSpend').value) || 0;
-  var roi = parseFloat(document.getElementById('postROI').value) || 0;
   var refund = parseFloat(document.getElementById('postRefund').value) || 0;
   var resultDiv = document.getElementById('postResult');
-  if (commission <= 0 || spend <= 0 || roi <= 0) { resultDiv.innerHTML = ''; return; }
+  if (commission <= 0 || gmv <= 0 || spend <= 0) { resultDiv.innerHTML = ''; return; }
   var commissionRate = commission / 100;
   var refundRate = refund / 100;
-  var gmv = spend * roi;
   var refundAmount = gmv * refundRate;
   var netGMV = gmv - refundAmount;
   var commissionIncome = netGMV * commissionRate;
   var profit = commissionIncome - spend;
+  var overallROI = gmv / spend;
   var profitRate = commissionIncome > 0 ? (profit / commissionIncome * 100) : 0;
   var investReturn = spend > 0 ? (profit / spend * 100) : 0;
   var isProfit = profit >= 0;
@@ -235,14 +235,14 @@ function calcPost() {
   html += '<div class="result-detail">佣金收入 ' + commissionIncome.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元 - 投放成本 ' + spend.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</div>';
   html += '</div>';
   html += '<table class="breakdown">';
-  html += '<tr><td>成交金额 (GMV)</td><td>' + gmv.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</td></tr>';
+  html += '<tr><td>总销售额 (GMV)</td><td>' + gmv.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</td></tr>';
   html += '<tr><td>退款金额 (' + refund + '%)</td><td style="color:var(--danger)">-' + refundAmount.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</td></tr>';
-  html += '<tr><td>净成交金额</td><td>' + netGMV.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</td></tr>';
+  html += '<tr><td>净销售额</td><td>' + netGMV.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</td></tr>';
   html += '<tr><td>佣金收入 (' + commission + '%)</td><td>' + commissionIncome.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</td></tr>';
   html += '<tr><td>投放成本</td><td style="color:var(--danger)">-' + spend.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</td></tr>';
   html += '<tr><td>' + (isProfit ? '净利润' : '净亏损') + '</td><td class="' + valueClass + '">' + sign + profit.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</td></tr>';
   html += '</table>';
-  html += '<div class="result-detail" style="margin-top:8px;">净利润率：<strong>' + profitRate.toFixed(1) + '%</strong>（占佣金收入）&nbsp;&nbsp;|&nbsp;&nbsp;投流回报率：<strong>' + investReturn.toFixed(1) + '%</strong>（利润/投放）</div>';
+  html += '<div class="result-detail" style="margin-top:8px;">整体ROI：<strong>' + overallROI.toFixed(2) + '</strong>（含自然流）&nbsp;&nbsp;|&nbsp;&nbsp;净利润率：<strong>' + profitRate.toFixed(1) + '%</strong>&nbsp;&nbsp;|&nbsp;&nbsp;投流回报率：<strong>' + investReturn.toFixed(1) + '%</strong></div>';
   resultDiv.innerHTML = html;
 }
 function saveCommission() {
