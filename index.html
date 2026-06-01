@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>直播盈亏计算器</title>
+<style>
+:root { --bg: #f5f5f5; --card: #ffffff; --text: #1a1a1a; --sub: #666; --primary: #2F5496; --danger: #C00000; --success: #1a7a1a; --border: #e0e0e0; --shadow: 0 2px 12px rgba(0,0,0,0.08); }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; justify-content: center; padding: 20px; }
+.container { max-width: 560px; width: 100%; }
+.header { text-align: center; padding: 24px 0 20px; }
+.header h1 { font-size: 22px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+.header p { font-size: 13px; color: var(--sub); }
+.tabs { display: flex; margin-bottom: 16px; background: var(--card); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
+.tab { flex: 1; text-align: center; padding: 14px 0; cursor: pointer; font-size: 15px; font-weight: 600; transition: all 0.2s; color: var(--sub); border-bottom: 2px solid transparent; }
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); background: #f0f4ff; }
+.tab:hover { background: #f8f9fb; }
+.card { background: var(--card); border-radius: 10px; padding: 24px; box-shadow: var(--shadow); margin-bottom: 16px; }
+.card-title { font-size: 16px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+.card-title .icon { font-size: 20px; }
+.input-group { margin-bottom: 16px; }
+.input-group label { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.input-group label .hint { font-size: 12px; color: var(--sub); font-weight: 400; }
+.input-row { display: flex; align-items: center; gap: 8px; }
+.input-row input { flex: 1; padding: 12px 14px; font-size: 16px; border: 1.5px solid var(--border); border-radius: 8px; outline: none; transition: border-color 0.2s; }
+.input-row input:focus { border-color: var(--primary); }
+.input-row .unit { font-size: 14px; color: var(--sub); min-width: 24px; font-weight: 600; }
+.quick-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.quick-btn { padding: 4px 10px; font-size: 12px; border-radius: 12px; border: 1px solid var(--border); background: #f8f8f8; cursor: pointer; transition: all 0.15s; }
+.quick-btn:hover { background: #e8edf5; border-color: var(--primary); color: var(--primary); }
+.result-box { margin-top: 20px; padding: 18px; border-radius: 10px; text-align: center; font-weight: 700; }
+.result-box.break { background: #f0f4ff; border: 1.5px solid #d0d8f0; }
+.result-box.profit { background: #edf7ed; border: 1.5px solid #b8d9b8; }
+.result-box.loss { background: #fdf0f0; border: 1.5px solid #e8c0c0; }
+.result-label { font-size: 13px; color: var(--sub); margin-bottom: 4px; }
+.result-value { font-size: 36px; line-height: 1.2; }
+.result-value.profit-color { color: var(--success); }
+.result-value.loss-color { color: var(--danger); }
+.result-value.primary-color { color: var(--primary); }
+.result-detail { font-size: 13px; color: var(--sub); margin-top: 8px; line-height: 1.7; }
+.breakdown { width: 100%; margin-top: 12px; font-size: 13px; border-collapse: collapse; }
+.breakdown td { padding: 8px 4px; border-bottom: 1px solid #f0f0f0; }
+.breakdown td:last-child { text-align: right; font-weight: 600; }
+.breakdown tr:last-child td { border-bottom: none; font-size: 15px; font-weight: 700; }
+.breakdown .positive { color: var(--success); }
+.breakdown .negative { color: var(--danger); }
+.section { display: none; }
+.section.active { display: block; }
+.formula-hint { margin-top: 14px; padding: 10px 14px; background: #f8f8f8; border-radius: 8px; font-size: 12px; color: var(--sub); line-height: 1.8; }
+.formula-hint code { background: #e8e8e8; padding: 1px 5px; border-radius: 3px; font-size: 11px; font-family: "SF Mono", "Menlo", monospace; }
+@media (max-width: 400px) { .card { padding: 16px; } .result-value { font-size: 28px; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>📊 直播盈亏计算器</h1>
+    <p>基于全域数据，快速算清每场直播的账</p>
+  </div>
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('pre')">🔮 直播前 · 定目标</div>
+    <div class="tab" onclick="switchTab('post')">📋 直播后 · 算盈亏</div>
+  </div>
+  <div id="section-pre" class="section active">
+    <div class="card">
+      <div class="card-title"><span class="icon">🔮</span> 直播前 — 计算保本 ROI</div>
+      <div class="input-group">
+        <label>平均佣金率 <span class="hint">你从每单中拿到的佣金比例</span></label>
+        <div class="input-row">
+          <input type="number" id="preCommission" placeholder="如 20" step="0.1" min="0" max="100" oninput="calcPre()">
+          <span class="unit">%</span>
+        </div>
+        <div class="quick-btns">
+          <span class="quick-btn" onclick="setPreCommission(10)">10%</span>
+          <span class="quick-btn" onclick="setPreCommission(15)">15%</span>
+          <span class="quick-btn" onclick="setPreCommission(20)">20%</span>
+          <span class="quick-btn" onclick="setPreCommission(25)">25%</span>
+          <span class="quick-btn" onclick="setPreCommission(30)">30%</span>
+          <span class="quick-btn" onclick="setPreCommission(35)">35%</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label>投放预算 <span class="hint">本次直播计划投流的金额</span></label>
+        <div class="input-row">
+          <input type="number" id="preBudget" placeholder="如 10000" step="100" min="0" oninput="calcPre()">
+          <span class="unit">元</span>
+        </div>
+        <div class="quick-btns">
+          <span class="quick-btn" onclick="setPreBudget(5000)">5千</span>
+          <span class="quick-btn" onclick="setPreBudget(10000)">1万</span>
+          <span class="quick-btn" onclick="setPreBudget(30000)">3万</span>
+          <span class="quick-btn" onclick="setPreBudget(50000)">5万</span>
+          <span class="quick-btn" onclick="setPreBudget(100000)">10万</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label>预估退款率 <span class="hint">(可选) 根据历史数据预估，让保本线更准</span></label>
+        <div class="input-row">
+          <input type="number" id="preRefund" placeholder="如 15" step="0.1" min="0" max="100" oninput="calcPre()">
+          <span class="unit">%</span>
+        </div>
+      </div>
+      <div id="preResult"></div>
+      <div class="formula-hint">
+        <strong>计算逻辑：</strong><br>
+        保本条件 → 佣金收入 = 投放成本<br>
+        GMV × (1-退款率) × 佣金率 = 投放预算<br>
+        保本ROI = 投放预算 / 净利润为零时的GMV = 1 / (佣金率 × (1-退款率))
+      </div>
+    </div>
+  </div>
+  <div id="section-post" class="section">
+    <div class="card">
+      <div class="card-title"><span class="icon">📋</span> 直播后 — 计算实际盈亏</div>
+      <div class="input-group">
+        <label>平均佣金率 <span class="hint">本场产品的平均佣金比例</span></label>
+        <div class="input-row">
+          <input type="number" id="postCommission" placeholder="如 20" step="0.1" min="0" max="100" oninput="calcPost()">
+          <span class="unit">%</span>
+        </div>
+        <div class="quick-btns">
+          <span class="quick-btn" onclick="setPostCommission(10)">10%</span>
+          <span class="quick-btn" onclick="setPostCommission(15)">15%</span>
+          <span class="quick-btn" onclick="setPostCommission(20)">20%</span>
+          <span class="quick-btn" onclick="setPostCommission(25)">25%</span>
+          <span class="quick-btn" onclick="setPostCommission(30)">30%</span>
+          <span class="quick-btn" onclick="setPostCommission(35)">35%</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label>实际投放金额 <span class="hint">本场实际消耗的投流费用</span></label>
+        <div class="input-row">
+          <input type="number" id="postSpend" placeholder="如 10000" step="100" min="0" oninput="calcPost()">
+          <span class="unit">元</span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label>平均 ROI <span class="hint">整体支付ROI（GMV / 投放金额）</span></label>
+        <div class="input-row">
+          <input type="number" id="postROI" placeholder="如 3.5" step="0.01" min="0" oninput="calcPost()">
+          <span class="unit"></span>
+        </div>
+      </div>
+      <div class="input-group">
+        <label>退款率 <span class="hint">本场实际退款金额 / 成交金额</span></label>
+        <div class="input-row">
+          <input type="number" id="postRefund" placeholder="如 15" step="0.1" min="0" max="100" oninput="calcPost()">
+          <span class="unit">%</span>
+        </div>
+      </div>
+      <div id="postResult"></div>
+      <div class="formula-hint">
+        <strong>计算逻辑：</strong><br>
+        成交金额 = 投放金额 × 平均ROI<br>
+        净成交 = 成交金额 × (1 - 退款率)<br>
+        佣金收入 = 净成交 × 佣金率<br>
+        盈亏 = 佣金收入 - 投放金额
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(function(t, i) {
+    t.classList.toggle('active', (tab === 'pre' && i === 0) || (tab === 'post' && i === 1));
+  });
+  document.getElementById('section-pre').classList.toggle('active', tab === 'pre');
+  document.getElementById('section-post').classList.toggle('active', tab === 'post');
+}
+function setPreCommission(v) { document.getElementById('preCommission').value = v; calcPre(); saveCommission(); }
+function setPreBudget(v) { document.getElementById('preBudget').value = v; calcPre(); }
+function calcPre() {
+  var commission = parseFloat(document.getElementById('preCommission').value) || 0;
+  var budget = parseFloat(document.getElementById('preBudget').value) || 0;
+  var refund = parseFloat(document.getElementById('preRefund').value) || 0;
+  var resultDiv = document.getElementById('preResult');
+  if (commission <= 0 || budget <= 0) { resultDiv.innerHTML = ''; return; }
+  var commissionRate = commission / 100;
+  var refundRate = refund / 100;
+  var effectiveRate = commissionRate * (1 - refundRate);
+  var breakEvenROI = effectiveRate > 0 ? (1 / effectiveRate) : Infinity;
+  var breakEvenGMV = effectiveRate > 0 ? (budget / effectiveRate) : Infinity;
+  var html = '<div class="result-box break">';
+  html += '<div class="result-label">最低保本 ROI' + (refund > 0 ? '（含退款预估）' : '') + '</div>';
+  html += '<div class="result-value primary-color">' + (breakEvenROI === Infinity ? '∞' : breakEvenROI.toFixed(2)) + '</div>';
+  html += '<div class="result-detail">';
+  if (refund > 0) {
+    html += '不含退款时的保本 ROI：<strong>' + (1/commissionRate).toFixed(2) + '</strong>（含退款后为 ' + breakEvenROI.toFixed(2) + '）<br>';
+  }
+  html += '投放 <strong>' + budget.toLocaleString() + ' 元</strong>，ROI 需做到 <strong>' + breakEvenROI.toFixed(2) + '</strong> 以上才不赔<br>';
+  html += '对应最低 GMV：<strong>' + (breakEvenGMV === Infinity ? '∞' : breakEvenGMV.toLocaleString(undefined, {maximumFractionDigits: 0})) + ' 元</strong>';
+  html += '</div></div>';
+  if (breakEvenROI !== Infinity) {
+    html += '<table class="breakdown"><tr><td style="color:#999">ROI 阶梯速算</td><td style="color:#999">佣金收入</td><td style="color:#999">盈亏</td></tr>';
+    var steps = [Math.ceil(breakEvenROI), Math.ceil(breakEvenROI) + 1, Math.ceil(breakEvenROI) + 2, Math.ceil(breakEvenROI) + 3];
+    for (var i = 0; i < steps.length; i++) {
+      var roi = steps[i];
+      var gmv = budget * roi;
+      var net = gmv * (1 - refundRate) * commissionRate;
+      var profit = net - budget;
+      var cls = profit >= 0 ? 'positive' : 'negative';
+      var sign = profit >= 0 ? '+' : '';
+      html += '<tr><td>ROI = ' + roi + '</td><td>' + net.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</td><td class="' + cls + '">' + sign + profit.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</td></tr>';
+    }
+    html += '</table>';
+  }
+  resultDiv.innerHTML = html;
+}
+function setPostCommission(v) { document.getElementById('postCommission').value = v; calcPost(); saveCommission(); }
+function calcPost() {
+  var commission = parseFloat(document.getElementById('postCommission').value) || 0;
+  var spend = parseFloat(document.getElementById('postSpend').value) || 0;
+  var roi = parseFloat(document.getElementById('postROI').value) || 0;
+  var refund = parseFloat(document.getElementById('postRefund').value) || 0;
+  var resultDiv = document.getElementById('postResult');
+  if (commission <= 0 || spend <= 0 || roi <= 0) { resultDiv.innerHTML = ''; return; }
+  var commissionRate = commission / 100;
+  var refundRate = refund / 100;
+  var gmv = spend * roi;
+  var refundAmount = gmv * refundRate;
+  var netGMV = gmv - refundAmount;
+  var commissionIncome = netGMV * commissionRate;
+  var profit = commissionIncome - spend;
+  var profitRate = commissionIncome > 0 ? (profit / commissionIncome * 100) : 0;
+  var investReturn = spend > 0 ? (profit / spend * 100) : 0;
+  var isProfit = profit >= 0;
+  var boxClass = isProfit ? 'profit' : 'loss';
+  var valueClass = isProfit ? 'profit-color' : 'loss-color';
+  var sign = isProfit ? '+' : '';
+  var label = isProfit ? '本场净利润' : '本场净亏损';
+  var html = '<div class="result-box ' + boxClass + '">';
+  html += '<div class="result-label">' + label + '</div>';
+  html += '<div class="result-value ' + valueClass + '">' + sign + profit.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</div>';
+  html += '<div class="result-detail">佣金收入 ' + commissionIncome.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元 - 投放成本 ' + spend.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</div>';
+  html += '</div>';
+  html += '<table class="breakdown">';
+  html += '<tr><td>成交金额 (GMV)</td><td>' + gmv.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</td></tr>';
+  html += '<tr><td>退款金额 (' + refund + '%)</td><td style="color:var(--danger)">-' + refundAmount.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</td></tr>';
+  html += '<tr><td>净成交金额</td><td>' + netGMV.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</td></tr>';
+  html += '<tr><td>佣金收入 (' + commission + '%)</td><td>' + commissionIncome.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</td></tr>';
+  html += '<tr><td>投放成本</td><td style="color:var(--danger)">-' + spend.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</td></tr>';
+  html += '<tr><td>' + (isProfit ? '净利润' : '净亏损') + '</td><td class="' + valueClass + '">' + sign + profit.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' 元</td></tr>';
+  html += '</table>';
+  html += '<div class="result-detail" style="margin-top:8px;">净利润率：<strong>' + profitRate.toFixed(1) + '%</strong>（占佣金收入）&nbsp;&nbsp;|&nbsp;&nbsp;投流回报率：<strong>' + investReturn.toFixed(1) + '%</strong>（利润/投放）</div>';
+  resultDiv.innerHTML = html;
+}
+function saveCommission() {
+  var v1 = document.getElementById('preCommission').value;
+  var v2 = document.getElementById('postCommission').value;
+  if (v1) localStorage.setItem('live_calc_commission', v1);
+  if (v2) localStorage.setItem('live_calc_commission', v2);
+}
+(function() {
+  var saved = localStorage.getItem('live_calc_commission');
+  if (saved) {
+    document.getElementById('preCommission').value = saved;
+    document.getElementById('postCommission').value = saved;
+  }
+})();
+</script>
+</body>
+</html>
